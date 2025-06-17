@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Δν Database - Peoplerep Fleet Systems</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron&family=Roboto+Mono&display=swap');
+  body { margin:0; background:#000011; color:#00ffcc; font-family:'Roboto Mono', monospace; }
+  header { background:#002222; padding:1rem 1.5rem; display:flex; align-items:center; gap:12px; }
+  header h1 { font-family:'Orbitron', monospace; font-weight:700; margin:0; font-size:1.8rem; color:#00ffcc; }
+  #searchInput { flex-grow:1; padding:8px 12px; border-radius:8px; border:none; outline:none; background:#003333; color:#00ffcc; font-family:'Roboto Mono', monospace; font-weight:700; font-size:1.1rem; }
+  main { padding:1rem 1.5rem 2rem; }
+  nav { display:flex; gap:1rem; margin-bottom:1rem; }
+  nav button { background:transparent; border:2px solid #00ffcc; color:#00ffcc; font-family:'Orbitron',monospace; font-weight:700; padding:8px 16px; border-radius:10px; cursor:pointer; transition:background .3s,color .3s; }
+  nav button.active, nav button:hover { background:#00ffcc; color:#000; }
+  .card-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:1rem; }
+  .card { background:#001111; border:1px solid #00ffcc; border-radius:14px; padding:1rem; cursor:pointer; transition:box-shadow .3s; display:flex; flex-direction:column; }
+  .card:hover { box-shadow:0 0 15px #00ffccaa; }
+  .card h3 { margin:0 0 .5rem 0; font-family:'Orbitron', monospace; font-weight:700; font-size:1.3rem; color:#00ffcc; }
+  .card p.desc { margin:0 0 .8rem 0; color:#00ccaa; font-weight:600; }
+  .card .content { flex-grow:1; overflow:hidden; position:relative; line-height:1.4; max-height:4.2em; }
+  .card .content::after { content:''; position:absolute; bottom:0; left:0; width:100%; height:1.2em; background:linear-gradient(to bottom,transparent,#001111); }
+  .modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.85); backdrop-filter:blur(6px); justify-content:center; align-items:center; }
+  .modal.active { display:flex; }
+  .modal-content { background:#001111; padding:2rem; border:2px solid #00ffcc; border-radius:16px; max-width:600px; max-height:80vh; overflow-y:auto; position:relative; color:#00ffcc; }
+  .modal-content h2 { margin-top:0; font-family:'Orbitron', monospace; font-weight:700; }
+  .modal-content .body p { margin:0 0 1rem 0; line-height:1.5; color:#00ccaa; }
+  .close-btn { position:absolute; top:12px; right:16px; font-size:1.8rem; color:#00ffcc; cursor:pointer; user-select:none; transition:color .3s; }
+  .close-btn:hover { color:#00ccaa; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Δν Database</h1>
+  <input type="search" id="searchInput" placeholder="Search entries..." />
+</header>
+<main>
+  <nav id="categoryNav">
+    <button data-category="schematics">Schematics</button>
+    <button data-category="classified">Classified</button>
+    <button data-category="research" class="active">Research</button>
+    <button data-category="technology">Technology</button>
+    <button data-category="weaponry">Weaponry</button>
+  </nav>
+  <section class="card-grid" id="cardGrid"></section>
+</main>
+<div id="modal" class="modal" role="dialog" aria-modal="true">
+  <div class="modal-content">
+    <span class="close-btn" id="modalCloseBtn">&times;</span>
+    <h2 id="modalTitle"></h2>
+    <div class="body" id="modalBody"></div>
+  </div>
+</div>
+<script>
+  const data = {
+    schematics: [
+      { title: 'Delta-Nu Blueprints', desc: 'High-res schematics of the Delta-Nu base.', content: 'Detailed blueprints including main structures and tunnels.' },
+      { title: 'Base Structural Layout', desc: 'Structural layout for base facilities.', content: 'Descriptions and diagrams of major structures.' }
+    ],
+    classified: [
+      { title: 'Underground Facility Network', desc: 'Tri-node command & redundancy system.', content: '- Γμ: Moscow exec office, 120m deep.\n- Δν: Siberian HQ with full infrastructure.\n- Γν: Redundancy & AI failsafe node.\nConnected via HCTL-01 Hyperloop (3,900 km, ~3.5 hrs).' }
+    ],
+    research: [
+      { title: 'PRETS – Δν & Γμ Encrypted Network', desc: 'Secure comms linking Δν, Γμ, and Kremlin.', content: 'PRETS is the encrypted backbone for Δν (Siberia), Γμ (Moscow underground office), and the Kremlin. Features quantum-resistant encryption, adaptive frequency hopping, hardware E2E encryption, and biometric relay terminals.' },
+      { title: 'Cloning Bay', desc: 'Biological facility for clone generation.', content: 'Biological facility supporting clone generation through nutrient infusion tanks and memory imprinting systems. Equipped with stabilization beds, genome control consoles, and PRETS-restricted AI clone management interface. PSC-5 clearance required.' },
+      { title: 'Δν Structural Layout', desc: 'Structural overview of the Delta-Nu base organization.', content: '• Total Levels: 45\n• Sectors per Level: 27\n• Sections per Level: 52\n• Wings per Level: 67\n• Rooms per Level: 800\n• Total Rooms in Δν: 36,000\n\nEach of the 45 levels within the Δν base is organized in a consistent grid structure for scalability, control, and operational isolation.\n\nThe compartmentalized grid layout serves both as a high-capacity operational design and a security deterrent. By distributing core systems and key infrastructure across sectors, and embedding critical areas in deep sections, the base ensures maximum containment, defense, and redundancy.' }
+    ],
+    technology: [
+      { title: 'PDSM-1 Database Server', desc: 'Core-tier data infrastructure.', content: '12.54 PB per module, RAID-60 QSHD drives, 1.6–3.2 TB/s throughput, dual lithium fusion cells, PRETS+AES-1024 encryption, deployed in Δν & Γμ.' },
+      { title: 'PCSM-5 Cold Storage Unit', desc: 'Long-term archival vault system.', content: '4.67 PB, RAID-10 HLMD drives, 95–130 year lifespan, cryo-stabilized cooling, 4096-bit PRETS encryption, tamper detection.\nLocation: Level 35 → Sector 3 → Section 13 → Wing 54 → Room 434\nStandard Storage (PDSM-1): Room 433 adjacent.' }
+    ],
+    weaponry: [
+      { title: 'PBR-32M Blaster Rifle Mk I', desc: 'Moscow Corps mid-range energy rifle.', content: 'Weight 4.7 kg; Length 850 mm; 200 shots/charge; single/burst/full-auto; holographic night scope; PRETS-enabled targeting; PAPM-3 AI support.' }
+    ]
+  };
+
+  const cardGrid = document.getElementById('cardGrid');
+  const searchInput = document.getElementById('searchInput');
+  const categoryNav = document.getElementById('categoryNav');
+  let currentCategory = 'research';
+
+  function renderCards(category, filter='') {
+    cardGrid.innerHTML = '';
+    const entries = data[category].filter(item =>
+      item.title.toLowerCase().includes(filter.toLowerCase()) ||
+      item.desc.toLowerCase().includes(filter.toLowerCase()) ||
+      item.content.toLowerCase().includes(filter.toLowerCase())
+    );
+    entries.forEach(entry => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.tabIndex = 0;
+      card.setAttribute('role','button');
+      card.innerHTML = `<h3>${entry.title}</h3><p class="desc">${entry.desc}</p><div class="content">${entry.content}</div>`;
+      card.addEventListener('click',()=>openModal(entry));
+      card.addEventListener('keydown',e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();openModal(entry)}}); 
+      cardGrid.appendChild(card);
+    });
+  }
+
+  function openModal(entry) {
+    document.getElementById('modalTitle').textContent = entry.title;
+    const bodyDiv = document.getElementById('modalBody');
+    bodyDiv.innerHTML = '';
+    entry.content.split('\n').forEach(line => {
+      const p = document.createElement('p');
+      p.textContent = line;
+      bodyDiv.appendChild(p);
+    });
+    document.getElementById('modal').classList.add('active');
+    document.getElementById('modalCloseBtn').focus();
+  }
+
+  function closeModal() {
+    document.getElementById('modal').classList.remove('active');
+    searchInput.focus();
+  }
+
+  document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+  window.addEventListener('click', e=>{ if(e.target.id==='modal') closeModal() });
+  window.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal() });
+
+  categoryNav.addEventListener('click', e=> {
+    if(e.target.tagName==='BUTTON') {
+      currentCategory = e.target.getAttribute('data-category');
+      Array.from(categoryNav.children).forEach(btn=>btn.classList.toggle('active',btn===e.target));
+      renderCards(currentCategory,searchInput.value);
+    }
+  });
+
+  searchInput.addEventListener('input',()=>renderCards(currentCategory,searchInput.value));
+  renderCards(currentCategory);
+</script>
+</body>
+</html>
